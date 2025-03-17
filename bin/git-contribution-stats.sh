@@ -1,10 +1,17 @@
 #!/bin/bash
 
+# Check if we're in a git repository
+if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    echo "Error: Not inside a git repository"
+    exit 1
+fi
+
 # Get terminal width for adaptable formatting
 TERM_WIDTH=$(tput cols)
 
 # Calculate table width based on the longest author name
 MAX_AUTHOR_LEN=$(git log --format="%aN" | awk '{ if (length($0) > max) max = length($0) } END { print max }')
+
 # Add some padding
 AUTHOR_COL=$((MAX_AUTHOR_LEN + 4))
 
@@ -13,6 +20,7 @@ COMMITS_COL=10
 INSERTED_COL=10
 DELETED_COL=10
 NET_CHANGE_COL=12
+
 # Total table width
 TABLE_WIDTH=$((AUTHOR_COL + COMMITS_COL + INSERTED_COL + DELETED_COL + NET_CHANGE_COL + 6))
 
@@ -37,7 +45,6 @@ BEGIN { }
 /^[a-zA-Z]/ { author = $0 }
 /^ [0-9]/ {
     commits[author]++
-
     # Handle the different formats of the shortstat line
     for (i=1; i<=NF; i++) {
         if ($i ~ /insertion/) {
