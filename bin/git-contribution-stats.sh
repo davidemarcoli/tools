@@ -6,17 +6,22 @@ function show_usage() {
   echo "Options:"
   echo "  -e, --ext EXT     Filter by file extension(s) (comma-separated)"
   echo "  -p, --path PATH   Filter by path(s) (comma-separated)"
+  echo "  -s, --sort COL    Sort by column (author, commits, insertions, deletions, net)"
+  echo "  -r, --reverse     Reverse sort order"
   echo "  -h, --help        Show this help message"
   echo ""
   echo "Examples:"
-  echo "  $0 --ext js,ts    # Only count JavaScript and TypeScript files"
-  echo "  $0 --path src/    # Only count files in the src directory"
+  echo "  $0 --ext js,ts                # Only count JavaScript and TypeScript files"
+  echo "  $0 --path src/                # Only count files in the src directory"
+  echo "  $0 --sort commits --reverse   # Sort by number of commits in ascending order"
   exit 1
 }
 
 # Initialize variables
 EXTENSIONS=""
 PATHS=""
+SORT_COLUMN="net"  # Default sort by net change
+SORT_REVERSE=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -29,6 +34,14 @@ while [[ $# -gt 0 ]]; do
       PATHS="$2"
       shift 2
       ;;
+    -s|--sort)
+      SORT_COLUMN="$2"
+      shift 2
+      ;;
+    -r|--reverse)
+      SORT_REVERSE=true
+      shift
+      ;;
     -h|--help)
       show_usage
       ;;
@@ -38,6 +51,46 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Validate sort column
+case "$SORT_COLUMN" in
+  author|authors)
+    SORT_FIELD=2  # Sort by the author name
+    ;;
+  commit|commits)
+    SORT_FIELD=3  # Sort by number of commits
+    ;;
+  insertion|insertions)
+    SORT_FIELD=4  # Sort by number of insertions
+    ;;
+  deletion|deletions)
+    SORT_FIELD=5  # Sort by number of deletions
+    ;;
+  net|change|net_change)
+    SORT_FIELD=6  # Sort by net change
+    ;;
+  *)
+    echo "Invalid sort column: $SORT_COLUMN"
+    echo "Valid options: author, commits, insertions, deletions, net"
+    exit 1
+    ;;
+esac
+
+# Set sort flag
+if [ "$SORT_REVERSE" = true ]; then
+  SORT_FLAG="-rn"  # Reverse numeric sort
+else
+  SORT_FLAG="-n"   # Numeric sort
+fi
+
+# Special case for author name (alphabetical sort)
+if [ "$SORT_FIELD" -eq 2 ]; then
+  if [ "$SORT_REVERSE" = true ]; then
+    SORT_FLAG="-r"  # Reverse alphabetical sort
+  else
+    SORT_FLAG=""    # Alphabetical sort
+  fi
+fi
 
 # Check if we're in a git repository
 if ! git rev-parse --is-inside-work-tree &>/dev/null; then
@@ -127,7 +180,7 @@ END {
                del_col-2, deletions[a],
                net_col-2, net
     }
-}' | sort -rnk 9
+}' | sort $SORT_FLAG -k $SORT_FIELD -t '|'
 
 # Print footer
 hr
