@@ -14,7 +14,7 @@ git push origin main
 
 ```bash
 git tag -a v1.1.0 -m "Version 1.1.0 add command line options for filtering by file extension and path"
-git tag push origin v1.1.0
+git push origin v1.1.0
 ```
 
 ### Brew Formula
