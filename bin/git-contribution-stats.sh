@@ -1,5 +1,44 @@
 #!/bin/bash
 
+# Usage function
+function show_usage() {
+  echo "Usage: $0 [options]"
+  echo "Options:"
+  echo "  -e, --ext EXT     Filter by file extension(s) (comma-separated)"
+  echo "  -p, --path PATH   Filter by path(s) (comma-separated)"
+  echo "  -h, --help        Show this help message"
+  echo ""
+  echo "Examples:"
+  echo "  $0 --ext js,ts    # Only count JavaScript and TypeScript files"
+  echo "  $0 --path src/    # Only count files in the src directory"
+  exit 1
+}
+
+# Initialize variables
+EXTENSIONS=""
+PATHS=""
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -e|--ext)
+      EXTENSIONS="$2"
+      shift 2
+      ;;
+    -p|--path)
+      PATHS="$2"
+      shift 2
+      ;;
+    -h|--help)
+      show_usage
+      ;;
+    *)
+      echo "Unknown option: $1"
+      show_usage
+      ;;
+  esac
+done
+
 # Check if we're in a git repository
 if ! git rev-parse --is-inside-work-tree &>/dev/null; then
     echo "Error: Not inside a git repository"
@@ -39,8 +78,31 @@ printf "| %-*s| %-*s| %-*s| %-*s| %-*s|\n" \
        $((NET_CHANGE_COL-1)) "Net Change"
 hr
 
+# Build the git command with optional path filters
+GIT_CMD="git log --format=\"%aN\" --shortstat"
+
+# Add file extension filters if specified
+if [[ -n "$EXTENSIONS" ]]; then
+  # Create path filters for each extension
+  IFS=',' read -ra EXT_ARRAY <<< "$EXTENSIONS"
+  for ext in "${EXT_ARRAY[@]}"; do
+    # Trim whitespace
+    ext=$(echo "$ext" | xargs)
+    # Add each extension as a separate path filter
+    GIT_CMD="$GIT_CMD -- \"*.$ext\""
+  done
+elif [[ -n "$PATHS" ]]; then
+  # Add path filters if specified
+  IFS=',' read -ra PATH_ARRAY <<< "$PATHS"
+  for path in "${PATH_ARRAY[@]}"; do
+    # Trim whitespace
+    path=$(echo "$path" | xargs)
+    GIT_CMD="$GIT_CMD \"$path\""
+  done
+fi
+
 # Get stats per author
-git log --format="%aN" --shortstat | awk -v author_col=$AUTHOR_COL -v commit_col=$COMMITS_COL -v ins_col=$INSERTED_COL -v del_col=$DELETED_COL -v net_col=$NET_CHANGE_COL '
+eval $GIT_CMD | awk -v author_col=$AUTHOR_COL -v commit_col=$COMMITS_COL -v ins_col=$INSERTED_COL -v del_col=$DELETED_COL -v net_col=$NET_CHANGE_COL '
 BEGIN { }
 /^[a-zA-Z]/ { author = $0 }
 /^ [0-9]/ {
